@@ -1,0 +1,8 @@
+beautifulsoup4
+keras=2.0.4
+numpy
+matplotlib
+tensorflow
+nltk
+scikit-learn
+scrapy
