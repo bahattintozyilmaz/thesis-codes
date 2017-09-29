@@ -115,6 +115,7 @@ def run_lstm(model, seed, length, encoding_type, encoding_dict, temperature=1.0)
 	return chars
 
 def test_sentence(model, sent, char_dict, n=None, t=0.3):
+	sent = '\000' + sent
 	if not n:
 		n = len(sent)
 

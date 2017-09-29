@@ -10,15 +10,20 @@ from keras_contrib import mLSTM
 data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
 out_path = '/Users/baha/Personal/thesis/nn-models/pred-char-20-epoch'
 
+embedding_size = 50
+lookback = 40
+batch_size = 100
+
+try:
+	from overrides import*
+except ImportError:
+	pass
+
 print('loading data')
 x_train, x_test = load_data(data_path, filter_cats=['Home Improvements and Repairs'])
 
 all_chars = set([c for c in x_test+x_train])
 char_dict = {c:i for i,c in enumerate(all_chars)}
-
-embedding_size = 50
-lookback = 40
-batch_size = 100
 
 print('data loaded. test {}, train {}'.format(len(x_test), len(x_train)))
 
