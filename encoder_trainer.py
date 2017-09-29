@@ -1,6 +1,6 @@
 import math
 
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, CSVLogger
 from keras.models import Sequential
 from keras.layers import GRU, Dense, Activation, Dropout, LSTM, Bidirectional, Embedding, TimeDistributed, RepeatVector
 
@@ -48,7 +48,8 @@ sent_autoencoder.summary()
 
 hist = sent_autoencoder.fit_generator(
 	embed_generator(x_train, batch_size, lookback, char_dict), epoch_steps, epochs=20, 
-	callbacks=[ModelCheckpoint(out_path+'.{epoch:02d}-{val_loss:.4f}.hdf5')],
+	callbacks=[ModelCheckpoint(out_path+'.{epoch:02d}-{val_loss:.4f}.hdf5'),
+			   CSVLogger(out_path+'.loss.log')],
 	validation_data=embed_generator(x_test, batch_size, lookback, char_dict), 
 	validation_steps=validation_steps)
 
