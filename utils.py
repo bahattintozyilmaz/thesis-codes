@@ -21,18 +21,18 @@ def load_data(path, test_ratio=0.01, filter_cats=None, delimiter='\000'):
 	test_sents = delimiter + delimiter.join(process_sents(s) for s in test_set)
 	train_sents = delimiter + delimiter.join(process_sents(s) for s in train_set)
 
-	return train_sents, test_sents
+	return train_sents.lower(), test_sents.lower()
 
 def one_hot_encode(sent, j, batch_size, lookback, char_dict):
-	allx = np.zeros((batch_size, lookback, len(char_dict)))
-	ally = np.zeros((batch_size, len(char_dict)))
+	allx = np.zeros((batch_size, lookback, len(char_dict)), dtype=np.float32)
+	ally = np.zeros((batch_size, len(char_dict)), dtype=np.float32)
 	for i in range(min(batch_size, len(sent)-j-lookback)):
 		inner_sent = sent[(i+j):(i+j+lookback)]
 		for ind,c in enumerate(inner_sent):
 			allx[i,ind,char_dict[c]] = 1
 		ally[i, char_dict[sent[i+j+lookback]]] = 1
 		
-	return allx.astype(np.float32), ally.astype(np.float32)
+	return allx, ally
 
 def one_hot_generator(sent, batch_size, lookback, char_dict):
 	while 1:
@@ -40,15 +40,15 @@ def one_hot_generator(sent, batch_size, lookback, char_dict):
 			yield one_hot_encode(sent, j, batch_size, lookback, char_dict)
 
 def embed_encode(sent, j, batch_size, lookback, char_dict):
-	allx = np.zeros((batch_size, lookback))
-	ally = np.zeros((batch_size, len(char_dict)))
+	allx = np.zeros((batch_size, lookback), dtype=np.float32)
+	ally = np.zeros((batch_size, len(char_dict)), dtype=np.float32)
 	for i in range(min(batch_size, len(sent)-j-lookback)):
 		inner_sent = sent[(i+j):(i+j+lookback)]
 		for ind,c in enumerate(inner_sent):
 			allx[i,ind] = char_dict[c]
 		ally[i, char_dict[sent[i+j+lookback]]] = 1
 		
-	return allx.astype(np.float32), ally.astype(np.float32)
+	return allx, ally
 
 def embed_generator(sent, batch_size, lookback, char_dict):
 	while 1:

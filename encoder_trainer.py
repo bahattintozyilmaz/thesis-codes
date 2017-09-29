@@ -11,8 +11,8 @@ data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
 out_path = '/Users/baha/Personal/thesis/nn-models/pred-char-20-epoch'
 
 embedding_size = 50
-lookback = 40
-batch_size = 100
+lookback = 100
+batch_size = 128
 
 try:
 	from overrides import*
