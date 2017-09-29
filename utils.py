@@ -32,7 +32,7 @@ def one_hot_encode(sent, j, batch_size, lookback, char_dict):
 			allx[i,ind,char_dict[c]] = 1
 		ally[i, char_dict[sent[i+j+lookback]]] = 1
 		
-	return allx, ally
+	return allx.astype(np.float32), ally.astype(np.float32)
 
 def one_hot_generator(sent, batch_size, lookback, char_dict):
 	while 1:
@@ -48,7 +48,7 @@ def embed_encode(sent, j, batch_size, lookback, char_dict):
 			allx[i,ind] = char_dict[c]
 		ally[i, char_dict[sent[i+j+lookback]]] = 1
 		
-	return allx, ally
+	return allx.astype(np.float32), ally.astype(np.float32)
 
 def embed_generator(sent, batch_size, lookback, char_dict):
 	while 1:
