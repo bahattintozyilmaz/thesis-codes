@@ -187,8 +187,7 @@ class mLSTM(Recurrent):
         rec_dp_mask = states[3]
 
         if self.implementation == 2:
-            inp = inputs[:, 4 * self.units:]
-            m1 = K.dot(inp, self.multiplicative_kernel_x)
+            m1 = K.dot(inputs, self.multiplicative_kernel_x)
             m2 = K.dot(h_tm1, self.multiplicative_kernel_h)
             m = m1*m2
             z = K.dot(inputs * dp_mask[0], self.kernel)
@@ -217,7 +216,7 @@ class mLSTM(Recurrent):
                 x_c = inputs[:, 2 * self.units: 3 * self.units]
                 x_o = inputs[:, 3 * self.units: 4 * self.units]
             elif self.implementation == 1:
-                m1 = K.dot(inp, self.multiplicative_kernel_x)
+                m1 = K.dot(inputs, self.multiplicative_kernel_x)
                 m2 = K.dot(h_tm1, self.multiplicative_kernel_h)
                 m = m1*m2
                 x_i = K.dot(inputs * dp_mask[0], self.kernel_i) + self.bias_i

@@ -23,7 +23,7 @@ print('loading data')
 x_train, x_test = load_data(data_path, filter_cats=['Home Improvements and Repairs'])
 
 all_chars = set([c for c in x_test+x_train])
-char_dict = {c:i for i,c in enumerate(all_chars)}
+char_dict = {c:i for i,c in enumerate(sorted(list(all_chars)))}
 
 print('data loaded. test {}, train {}'.format(len(x_test), len(x_train)))
 
@@ -33,8 +33,8 @@ with open(out_path + '.charmap', 'w') as f:
 
 sent_autoencoder = Sequential()
 sent_autoencoder.add(Embedding(len(all_chars), embedding_size))
-sent_autoencoder.add(mLSTM(200, return_sequences=False, dropout=0.2,
-						   activity_regularizer='l1', activation='tanh'))
+sent_autoencoder.add(mLSTM(300, return_sequences=False, dropout=0.2, recurrent_dropout=0.2, implementation=2,
+						   activity_regularizer='l2', activation='tanh'))
 sent_autoencoder.add(Dense(len(all_chars), activation='softmax', activity_regularizer='l1_l2'))
 
 sent_autoencoder.compile(loss='categorical_crossentropy', optimizer='adam', 
