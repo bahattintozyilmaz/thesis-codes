@@ -13,11 +13,13 @@ word_embedding_size = 500
 max_seq_len = 100
 batch_size = 60
 vocab_size = 10000
-log_every = 100
 gradient_clip = 5.0
 enable_cuda = False
-
 num_epochs = 10
+
+log_every = 100
+save_every = 10000
+save_backoff = 100
 
 try:
     from overrides import *
@@ -50,6 +52,7 @@ def train(log_every=100):
         for epoch in range(num_epochs):
             log('starting epoch ', epoch+1, log_file=logfile)
             total_loss = 0
+            last_saved = -save_backoff
             for batchid, batch in enumerate(data_loader.get_triplets()):
                 prv, cur, nxt = batch
                 prv, prv_len = prv
@@ -72,10 +75,14 @@ def train(log_every=100):
                     log("\tBatch {}/{}, average loss: {}, current loss: {}".format(
                         batchid, data_loader.get_total_triplets(), total_loss/(batchid+1), this_step_loss), log_file=logfile)
 
-                if this_step_loss < best_loss:
+                if this_step_loss < best_loss and (last_saved+save_backoff)>=batchid:
                     log("\t\tSaving best at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
                     t.save(sent2vec, out_path+".best.pyt")
                     best_loss = this_step_loss
+                
+                if batchid % save_every == 0:
+                    log("\t\tSaving regularly at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
+                    t.save(sent2vec, out_path+".regular.pyt")
 
             t.save(sent2vec, out_path+".epoch-{}.pyt".format(epoch))
 
