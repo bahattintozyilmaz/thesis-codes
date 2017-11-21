@@ -32,11 +32,15 @@ def log(*args, log_file=None):
         print(*args, file=log_file)
         log_file.flush()
 
-def train(log_every=100):
+def load_data():
     data_loader = JsonS2VLoader(data_path, num_words=vocab_size, longest_sent=max_seq_len, as_cuda=enable_cuda)
     data_loader.load().preprocess()
 
     data_loader.word_converter.dump(out_path+'.vocab.pkl')
+
+    return data_loader
+
+def train(data_loader):
     num_batches = (data_loader.get_total_triplets() + batch_size - 1) // batch_size
 
     sent2vec = Sent2Vec(encode_dim=embedding_size, embed_dim=word_embedding_size, embed_count=vocab_size, longest_seq=max_seq_len)
@@ -75,10 +79,11 @@ def train(log_every=100):
                     log("\tBatch {}/{}, average loss: {}, current loss: {}".format(
                         batchid, data_loader.get_total_triplets(), total_loss/(batchid+1), this_step_loss), log_file=logfile)
 
-                if this_step_loss < best_loss and (last_saved+save_backoff)>=batchid:
+                if this_step_loss < best_loss and (last_saved+save_backoff)<=batchid:
                     log("\t\tSaving best at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
                     t.save(sent2vec, out_path+".best.pyt")
                     best_loss = this_step_loss
+                    last_saved = batchid
                 
                 if batchid % save_every == 0:
                     log("\t\tSaving regularly at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
