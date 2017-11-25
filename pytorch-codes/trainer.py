@@ -77,7 +77,7 @@ def train(data_loader):
                 
                 if batchid % log_every == 0:
                     log("\tBatch {}/{}, average loss: {}, current loss: {}".format(
-                        batchid, data_loader.get_total_triplets(), total_loss/(batchid+1), this_step_loss), log_file=logfile)
+                        batchid, num_batches, total_loss/(batchid+1), this_step_loss), log_file=logfile)
 
                 if this_step_loss < best_loss and (last_saved+save_backoff)<=batchid:
                     log("\t\tSaving best at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
