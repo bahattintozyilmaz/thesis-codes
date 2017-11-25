@@ -10,6 +10,10 @@ word_tokenize = TreebankWordTokenizer().tokenize
 sent_tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
 def _process_sample(sample):
+    """
+    sample: {steps: [str]}
+    on return, sample['steps'] is a list of sentences
+    """
     arr = []
     translations = {'``': '"', "''": '"'}
     for s in sample['steps']:
@@ -89,6 +93,7 @@ class JsonS2VLoader():
         self.data = None
         self.word_converter = WordConverter(num_words=num_words)
         self._cached_num_total_triplets = None
+        self.num_cpus = multiprocessing.cpu_count()
 
     def filter(self, cats):
         """ creates filteration function and
@@ -108,14 +113,13 @@ class JsonS2VLoader():
         return self
 
     def preprocess(self):
-        pool = multiprocessing.Pool(processes=8)
+        pool = multiprocessing.Pool(processes=self.num_cpus)
         self.data = pool.map(_process_sample, self.data)
         pool.terminate()
         print('Done splitting sentences')
 
-        pool = multiprocessing.Pool(processes=8)
-        num_chunks = 8
-        all_counts = pool.map(_process_sents, (self.data[i::num_chunks] for i in range(num_chunks)))
+        pool = multiprocessing.Pool(processes=self.num_cpus)
+        all_counts = pool.map(_process_sents, (self.data[i::self.num_cpus] for i in range(self.num_cpus)))
         pool.terminate()
         for count in all_counts:
             self.word_converter.feed_dict(count)
@@ -124,10 +128,19 @@ class JsonS2VLoader():
         self.word_converter.finalize()
         print('Done creating word ids')
         # pre calculate everything, why not!
-        pool = multiprocessing.Pool(processes=8)
+        pool = multiprocessing.Pool(processes=self.num_cpus)
         self.data = pool.starmap(_process_translate, ((self.word_converter, s) for s in self.data))
         pool.terminate()
         print('Done precalculating sentence vectors')
+
+        pool = multiprocessing.Pool(processes=self.num_cpus)
+        all_counts = pool.map(_process_sents, (self.data[i::self.num_cpus] for i in range(self.num_cpus)))
+        pool.terminate()
+        for count in all_counts:
+            self.word_converter.feed_dict(count)
+
+        print('Done creating groups')
+
         return self
 
     def _pack_sent_tensors(self, sents):
