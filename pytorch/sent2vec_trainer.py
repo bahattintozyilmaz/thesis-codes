@@ -2,8 +2,8 @@ import torch as t
 import numpy as np
 import torch.optim as optim
 
-from pyt_sent2vec import Sent2Vec, masked_cross_entropy_loss, one_hot_encode 
-from data_loader import JsonS2VLoader
+from .pyt_sent2vec import Sent2Vec, masked_cross_entropy_loss
+from .data_loader import JsonS2VLoader
 
 data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
 out_path = '/Users/baha/Personal/thesis/nn-models/task2vec'
@@ -40,15 +40,21 @@ def load_data():
 
     return data_loader
 
-def train(data_loader):
+def create_model():
+    model = Sent2Vec(encode_dim=embedding_size, embed_dim=word_embedding_size, embed_count=vocab_size, longest_seq=max_seq_len)
+    return model
+
+def train(model, data_loader):
+    """
+    trains given model
+    """
     num_batches = (data_loader.get_total_triplets() + batch_size - 1) // batch_size
 
-    sent2vec = Sent2Vec(encode_dim=embedding_size, embed_dim=word_embedding_size, embed_count=vocab_size, longest_seq=max_seq_len)
     if enable_cuda:
-        sent2vec = sent2vec.cuda()
-    sent2vec.train()
+        model = model.cuda()
+    model.train()
 
-    optimizer = optim.Adam(sent2vec.parameters())
+    optimizer = optim.Adam(model.parameters())
 
     best_loss = 1e8
 
@@ -61,7 +67,8 @@ def train(data_loader):
                 prv, cur, nxt = batch
                 prv, prv_len = prv
                 nxt, nxt_len = nxt
-                prv_pred, nxt_pred = sent2vec(batch)
+                prv_pred, nxt_pred = model(batch)
+                optimizer.zero_grad()
 
                 prv_loss = masked_cross_entropy_loss(prv_pred.contiguous(), t.autograd.Variable(prv), prv_len)
                 nxt_loss = masked_cross_entropy_loss(nxt_pred.contiguous(), t.autograd.Variable(nxt), nxt_len)
@@ -69,26 +76,26 @@ def train(data_loader):
                 loss = prv_loss + nxt_loss
                 loss.backward()
 
-                t.nn.utils.clip_grad_norm(sent2vec.parameters(), gradient_clip)
+                t.nn.utils.clip_grad_norm(model.parameters(), gradient_clip)
 
                 optimizer.step()
                 this_step_loss = loss.sum().data[0]
                 total_loss += this_step_loss
-                
+
                 if batchid % log_every == 0:
                     log("\tBatch {}/{}, average loss: {}, current loss: {}".format(
                         batchid, num_batches, total_loss/(batchid+1), this_step_loss), log_file=logfile)
 
-                if this_step_loss < best_loss and (last_saved+save_backoff)<=batchid:
+                if this_step_loss < best_loss and (last_saved+save_backoff) <= batchid:
                     log("\t\tSaving best at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
-                    t.save(sent2vec, out_path+".best.pyt")
+                    t.save(model, out_path+".best.pyt")
                     best_loss = this_step_loss
                     last_saved = batchid
-                
+
                 if batchid % save_every == 0:
                     log("\t\tSaving regularly at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
-                    t.save(sent2vec, out_path+".regular.pyt")
+                    t.save(model, out_path+".regular.pyt")
 
-            t.save(sent2vec, out_path+".epoch-{}.pyt".format(epoch))
+            t.save(model, out_path+".epoch-{}.pyt".format(epoch))
 
-    return sent2vec
+    return model
