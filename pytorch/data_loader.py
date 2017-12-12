@@ -80,7 +80,7 @@ class WordConverter():
 
     def load(self, filename):
         with open(filename, 'rb') as f:
-            pickle.load(self.word_dict, f)
+            self.word_dict = pickle.load(f)
         self.word_idict = dict((v,k) for k,v in self.word_dict.items())
 
 class JsonS2VLoader():

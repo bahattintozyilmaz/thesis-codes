@@ -90,7 +90,7 @@ class Sent2Vec(nn.Module):
         curr_embed = self.embedding(inp)
 
         out, imm = self.encoder(curr_embed, inits)
-        padded_lengths = [i*inp.size()[0]+v for i, v in enumerate(lengths)]
+        padded_lengths = [i*inp.size(1)+v-1 for i, v in enumerate(lengths)]
         out_ = out.contiguous().view(-1, self.encode_dim)[padded_lengths, :]
 
         return out_
