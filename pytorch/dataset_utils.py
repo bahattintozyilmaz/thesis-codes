@@ -2,6 +2,7 @@ import json
 import multiprocessing
 import os
 import torch
+import pickle
 from data_loader import WordConverter, sent_tokenizer
 from pyt_sent2vec import Sent2Vec
 
@@ -59,31 +60,35 @@ def _encode(model, wc, sents, padded_length=100):
 
     encoded_sents = [wc.translate(sent) for sent in sents]
     padded_sents = [pad_sent(sent) for sent in encoded_sents]
-    inp = (torch.LongTensor(padded_sents), [min(len(sent), padded_length)-1 for sent in encoded_sents])
-    out = model.encode(inp).data.tolist()
+    inp = (torch.LongTensor(padded_sents), [min(len(sent), padded_length) for sent in encoded_sents])
+    out = model.encode(inp).data
     
     if single_sent:
-        out = out[0]
+        out = out[0, :]
     
     return out
 
 def convert_dataset_to_vec(model, wc, filename, outname=None):
     if not outname:
-        outname = add_name(filename, 'vectorized')
+        outname = add_name(filename, 'encoded_dict')
 
     data = load_dataset(filename)
-    new_data = []
+    new_data = {}
 
     for i in range(len(data)):
         if not data[i]['steps'] or not data[i]['cat']:
             continue
-        data[i]['steps_vec'] = _encode(model, wc, data[i]['steps'])
-        data[i]['title_vec'] = _encode(model, wc, data[i]['title'])
-        new_data.append(data[i])
+        steps_vec = _encode(model, wc, data[i]['steps'])
+        title_vec = _encode(model, wc, data[i]['title'])
+        
+        new_data[data[i]['title']] = steps_vec.numpy()
+        for j, s in enumerate(data[i]['steps']):
+            new_data[s] = steps_vec[j, :].numpy()
+
         if i % 100 == 0:
             print(i, '/', len(data))
 
     with open(outname, 'w') as f:
-        json.dump(new_data, f)
+        pickle.dump(new_data, f)
 
     return data
