@@ -78,7 +78,7 @@ class Sent2Vec(nn.Module):
 
     def forward(self, inp):
         cur, nxt, prv = inp[1], inp[2], inp[0]
-        hidden = self.encode(cur)
+        hidden, _ = self.encode(cur)
         out = self.decode(hidden, nxt, prv)
         return out
 
@@ -93,9 +93,9 @@ class Sent2Vec(nn.Module):
         padded_lengths = [i*inp.size(1)+v-1 for i, v in enumerate(lengths)]
         out_ = out.contiguous().view(-1, self.encode_dim)[padded_lengths, :]
 
-        return out_
+        return out_, out
 
-    def decode(self, imm, next_sent, prev_sent):
+    def decode(self, hidden, next_sent, prev_sent):
         def pad_embedding(emb):
             zeros = C(emb.data.new(emb.size(0), 1).zero_().long())
             return torch.cat([zeros, emb], 1)[:, :self.longest_sequence]
@@ -108,14 +108,14 @@ class Sent2Vec(nn.Module):
         next_sent = pad_embedding(next_sent)
         prev_sent = pad_embedding(prev_sent)
 
-        next_inits = C(next_sent.data.new(1, next_sent.size(0), self.encode_dim).zero_()).float()
+        inits = hidden.view(1, hidden.size(0), hidden.size(1))
+        
         next_embed = self.embedding(next_sent)
-        next_outs, _ = self.f_decoder(next_embed, next_inits)
+        next_outs, _ = self.f_decoder(nn.functional.relu(next_embed), inits)
         next_res = self.f_fc(next_outs)
 
-        prev_inits = C(next_sent.data.new(1, prev_sent.size(0), self.encode_dim).zero_()).float()
         prev_embed = self.embedding(prev_sent)
-        prev_outs, _ = self.b_decoder(prev_embed, prev_inits)
+        prev_outs, _ = self.b_decoder(nn.functional.relu(prev_embed), inits)
         prev_res = self.b_fc(prev_outs)
 
         return prev_res, next_res

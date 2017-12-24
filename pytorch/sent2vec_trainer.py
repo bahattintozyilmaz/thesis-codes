@@ -2,11 +2,11 @@ import torch as t
 import numpy as np
 import torch.optim as optim
 
-from .pyt_sent2vec import Sent2Vec, masked_cross_entropy_loss
-from .data_loader import JsonS2VLoader
+from pyt_sent2vec import Sent2Vec, masked_cross_entropy_loss
+from data_loader import JsonS2VLoader
 
 data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
-out_path = '/Users/baha/Personal/thesis/nn-models/task2vec'
+task2vec_path = '/Users/baha/Personal/thesis/nn-models/task2vec'
 
 embedding_size = 1000
 word_embedding_size = 500
@@ -36,7 +36,7 @@ def load_data():
     data_loader = JsonS2VLoader(data_path, num_words=vocab_size, longest_sent=max_seq_len, as_cuda=enable_cuda)
     data_loader.load().preprocess()
 
-    data_loader.word_converter.dump(out_path+'.vocab.pkl')
+    data_loader.word_converter.dump(task2vec_path+'.vocab.pkl')
 
     return data_loader
 
@@ -58,12 +58,12 @@ def train(model, data_loader):
 
     best_loss = 1e8
 
-    with open(out_path+'.run.log', 'a') as logfile:
+    with open(task2vec_path+'.run.log', 'a') as logfile:
         for epoch in range(num_epochs):
             log('starting epoch ', epoch+1, log_file=logfile)
             total_loss = 0
             last_saved = -save_backoff
-            for batchid, batch in enumerate(data_loader.get_triplets()):
+            for batchid, batch in enumerate(data_loader.get_triplets(batch_size=batch_size)):
                 prv, cur, nxt = batch
                 prv, prv_len = prv
                 nxt, nxt_len = nxt
@@ -88,14 +88,14 @@ def train(model, data_loader):
 
                 if this_step_loss < best_loss and (last_saved+save_backoff) <= batchid:
                     log("\t\tSaving best at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
-                    t.save(model, out_path+".best.pyt")
+                    t.save(model, task2vec_path+".best.pyt")
                     best_loss = this_step_loss
                     last_saved = batchid
 
                 if batchid % save_every == 0:
                     log("\t\tSaving regularly at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
-                    t.save(model, out_path+".regular.pyt")
+                    t.save(model, task2vec_path+".regular.pyt")
 
-            t.save(model, out_path+".epoch-{}.pyt".format(epoch))
+            t.save(model, task2vec_path+".epoch-{}.pyt".format(epoch))
 
     return model

@@ -32,6 +32,7 @@ def _process_sents(samples):
 
 def _process_translate(wc, sample):
     sample['processed'] = [wc.translate(s) for s in sample['steps']]
+    sample['title_proc'] = wc.translate(sample['title'])
     return sample
 
 class WordConverter():
@@ -112,12 +113,14 @@ class JsonS2VLoader():
 
         return self
 
-    def preprocess(self):
+    def _prep_split_sents(self):
         pool = multiprocessing.Pool(processes=self.num_cpus)
         self.data = pool.map(_process_sample, self.data)
         pool.terminate()
         print('Done splitting sentences')
+        return self
 
+    def _prep_feed_word_counter(self):
         pool = multiprocessing.Pool(processes=self.num_cpus)
         all_counts = pool.map(_process_sents, (self.data[i::self.num_cpus] for i in range(self.num_cpus)))
         pool.terminate()
@@ -127,20 +130,25 @@ class JsonS2VLoader():
         print('Done feeding word counter')
         self.word_converter.finalize()
         print('Done creating word ids')
+        return self
+
+    def _prep_convert_sents(self):
         # pre calculate everything, why not!
         pool = multiprocessing.Pool(processes=self.num_cpus)
         self.data = pool.starmap(_process_translate, ((self.word_converter, s) for s in self.data))
         pool.terminate()
         print('Done precalculating sentence vectors')
+        return self
 
-        pool = multiprocessing.Pool(processes=self.num_cpus)
-        all_counts = pool.map(_process_sents, (self.data[i::self.num_cpus] for i in range(self.num_cpus)))
-        pool.terminate()
-        for count in all_counts:
-            self.word_converter.feed_dict(count)
+    def _prep_filter_empty_titles(self):
+        self.data = [s for s in self.data if (s['steps'] and s['cat'])]
+        return self
 
-        print('Done creating groups')
-
+    def preprocess(self):
+        self._prep_split_sents()
+        self._prep_feed_word_counter()
+        self._prep_convert_sents()
+   
         return self
 
     def _pack_sent_tensors(self, sents):
@@ -149,6 +157,16 @@ class JsonS2VLoader():
         if self.as_cuda:
             padded = padded.cuda()
         return padded, lens
+
+    def _pack_sample_tensors(self, samples, max_seq):
+        orig_lens = [len(s) for s in samples]
+        sents = []
+
+        for s in samples:
+            s_ = (s + ([[0]] * max_seq))[:max_seq]
+            sents.extend(s_)
+
+        return self._pack_sent_tensors(sents), orig_lens
 
     def get_total_triplets(self):
         if not self._cached_num_total_triplets:
@@ -170,3 +188,19 @@ class JsonS2VLoader():
 
         if cur:
             yield (self._pack_sent_tensors(prv), self._pack_sent_tensors(cur), self._pack_sent_tensors(nxt))
+
+    def get_total_samples(self):
+        return len(self.data)
+
+    def get_samples(self, batch_size, max_seq):
+        steps, titles = [], []
+        for s in self.data:
+            steps.append(s['processed'][:max_seq])
+            titles.append(s['title_proc'])
+
+            if len(titles) == batch_size:
+                yield (self._pack_sample_tensors(steps, max_seq), self._pack_sent_tensors(titles))
+                steps, titles = [], []
+
+        if titles:
+            yield (self._pack_sample_tensors(steps, max_seq), self._pack_sent_tensors(titles))
