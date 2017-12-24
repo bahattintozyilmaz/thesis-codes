@@ -111,11 +111,11 @@ class Sent2Vec(nn.Module):
         inits = hidden.view(1, hidden.size(0), hidden.size(1))
         
         next_embed = self.embedding(next_sent)
-        next_outs, _ = self.f_decoder(nn.functional.relu(next_embed), inits)
+        next_outs, _ = self.f_decoder(next_embed, inits)
         next_res = self.f_fc(next_outs)
 
         prev_embed = self.embedding(prev_sent)
-        prev_outs, _ = self.b_decoder(nn.functional.relu(prev_embed), inits)
+        prev_outs, _ = self.b_decoder(prev_embed, inits)
         prev_res = self.b_fc(prev_outs)
 
         return prev_res, next_res
