@@ -9,9 +9,9 @@ from data_loader import JsonS2VLoader
 from utils import C
 
 data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
-task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-take-three'
+task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-take-four'
 task2title_path = '/Users/baha/Personal/thesis/new-nn-models/task2title'
-task2vec_encoder_path = task2vec_path+'.cpu.pyt'
+task2vec_encoder_path = task2vec_path+'.epoch-4.pyt.cpu'
 
 
 embedding_size = 1000
@@ -74,8 +74,9 @@ def prepare_batch(encoder, batch):
     res = C(encode(encoder, res_tup))
     sents = encode(encoder, sents_tup)
     sents = sents.view(-1, task2title_max_steps, embedding_size)
+    norm = sents.norm(p=2, dim=2, keepdim=True)
 
-    return (sents, seq_lens), res
+    return (sents.div(norm), seq_lens), res.div(res.norm(p=2, dim=1, keepdim=True))
 
 def train(model, data, encoder):
     global task2title_path, task2title_batch_size

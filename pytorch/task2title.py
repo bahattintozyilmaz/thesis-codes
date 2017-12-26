@@ -20,7 +20,6 @@ class Task2Title(nn.Module):
 
         # select only outputs at lengths[i]
         padded_lengths = [i*inp.size(1)+v-1 for i, v in enumerate(lengths)]
-        print(padded_lengths)
         out_ = out.contiguous().view(-1, self.inner_size)[padded_lengths, :]
 
         # then feed them to fully connected

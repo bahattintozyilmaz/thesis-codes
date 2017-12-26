@@ -6,16 +6,17 @@ from pyt_sent2vec import Sent2Vec, masked_cross_entropy_loss
 from data_loader import JsonS2VLoader
 
 data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
-task2vec_path = '/Users/baha/Personal/thesis/nn-models/task2vec'
+task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-fixed-real'
 
 embedding_size = 1000
 word_embedding_size = 500
 max_seq_len = 100
 batch_size = 60
 vocab_size = 10000
-gradient_clip = 5.0
+gradient_clip = 10.0
 enable_cuda = False
-num_epochs = 10
+num_epochs = 5
+filter_cats = []
 
 log_every = 100
 save_every = 10000
@@ -33,7 +34,10 @@ def log(*args, log_file=None):
         log_file.flush()
 
 def load_data():
+    global 
     data_loader = JsonS2VLoader(data_path, num_words=vocab_size, longest_sent=max_seq_len, as_cuda=enable_cuda)
+    if filter_cats:
+        data_loader.filter(filter_cats)
     data_loader.load().preprocess()
 
     data_loader.word_converter.dump(task2vec_path+'.vocab.pkl')
