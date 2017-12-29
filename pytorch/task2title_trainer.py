@@ -9,10 +9,9 @@ from data_loader import JsonS2VLoader
 from utils import C
 
 data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
-task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-take-four'
+task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-take-four-filtered'
 task2title_path = '/Users/baha/Personal/thesis/new-nn-models/task2title'
-task2vec_encoder_path = task2vec_path+'.epoch-4.pyt.cpu'
-
+task2vec_encoder_path = task2vec_path+'.regular.pyt.cpu'
 
 embedding_size = 1000
 word_embedding_size = 500
@@ -25,6 +24,7 @@ num_epochs = 5
 task2title_hidden = 1200
 task2title_batch_size = 10
 task2title_max_steps = 80
+filter_cats = ['Finance and Business', 'Hobbies and Crafts', 'Home and Garden', 'Cars & Other Vehicles', 'Sports and Fitness', 'Pets and Animals', 'Work World', 'Youth', 'Philosophy and Religion', 'Health', 'Relationships', 'Education and Communications', 'Arts andEntertainment', 'Personal Care and Style', 'Family Life', 'Food and Entertaining']
 
 log_every = 1
 save_every = 1000
@@ -49,6 +49,8 @@ def create_model():
 def load_data():
     global data_path, vocab_size, max_seq_len, enable_cuda
     data_loader = JsonS2VLoader(data_path, num_words=vocab_size, longest_sent=max_seq_len, as_cuda=enable_cuda)
+    if filter_cats:
+        data_loader.filter(filter_cats)
     data_loader.load()
     data_loader.word_converter.load(task2vec_path+'.vocab.pkl')
     data_loader._prep_split_sents()

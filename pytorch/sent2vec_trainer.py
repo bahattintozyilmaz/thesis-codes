@@ -34,7 +34,6 @@ def log(*args, log_file=None):
         log_file.flush()
 
 def load_data():
-    global 
     data_loader = JsonS2VLoader(data_path, num_words=vocab_size, longest_sent=max_seq_len, as_cuda=enable_cuda)
     if filter_cats:
         data_loader.filter(filter_cats)
