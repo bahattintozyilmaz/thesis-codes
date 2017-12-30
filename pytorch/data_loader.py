@@ -148,6 +148,7 @@ class JsonS2VLoader():
         self._prep_split_sents()
         self._prep_feed_word_counter()
         self._prep_convert_sents()
+        self._prep_filter_empty_titles()
    
         return self
 
@@ -155,12 +156,12 @@ class JsonS2VLoader():
         def unknown_ratio(s):
             totes = list(zip(*[(proc.count(1), len(proc)) for proc in s['processed']]))
             return sum(totes[0])/sum(totes[1])
-        self.data = [s for s in data if unknown_ratio(s)<ratio]
+        self.data = [s for s in self.data if unknown_ratio(s)<ratio]
 
     def filter_by_title_unknown_ratio(self, ratio):
-        def unknown_ratio(s):
+        def unknown_ratio_tit(s):
             return s['title_proc'].count(1)/len(s['title_proc'])
-        self.data = [s for s in data if unknown_ratio(s)<ratio]
+        self.data = [s for s in self.data if unknown_ratio_tit(s)<ratio]
 
     def split_training_validation_test(self, random_seed, ratio=0.05):
         import random
