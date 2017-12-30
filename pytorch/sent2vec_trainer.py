@@ -15,10 +15,10 @@ batch_size = 60
 vocab_size = 10000
 gradient_clip = 10.0
 enable_cuda = False
-num_epochs = 5
+num_epochs = 10
 filter_cats = []
 
-log_every = 100
+log_every = 50
 save_every = 10000
 save_backoff = 100
 
@@ -38,6 +38,7 @@ def load_data():
     if filter_cats:
         data_loader.filter(filter_cats)
     data_loader.load().preprocess()
+    data_loader.filter_by_unknown_ratio(0.07)
 
     data_loader.word_converter.dump(task2vec_path+'.vocab.pkl')
 
@@ -99,6 +100,6 @@ def train(model, data_loader):
                     log("\t\tSaving regularly at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
                     t.save(model, task2vec_path+".regular.pyt")
 
-            t.save(model, task2vec_path+".epoch-{}.pyt".format(epoch))
+            t.save(model, task2vec_path+".last_epoch.pyt".format(epoch))
 
     return model

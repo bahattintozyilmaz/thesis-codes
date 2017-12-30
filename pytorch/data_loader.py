@@ -151,6 +151,26 @@ class JsonS2VLoader():
    
         return self
 
+    def filter_by_unknown_ratio(self, ratio):
+        def unknown_ratio(s):
+            totes = list(zip(*[(proc.count(1), len(proc)) for proc in s['processed']]))
+            return sum(totes[0])/sum(totes[1])
+        self.data = [s for s in data if unknown_ratio(s)<ratio]
+
+    def filter_by_title_unknown_ratio(self, ratio):
+        def unknown_ratio(s):
+            return s['title_proc'].count(1)/len(s['title_proc'])
+        self.data = [s for s in data if unknown_ratio(s)<ratio]
+
+    def split_training_validation_test(self, random_seed, ratio=0.05):
+        import random
+        cut = round(ratio * len(self.data))
+        random.seed(random_seed)
+        random.shuffle(self.data)
+        self.data, self.val, self.test = self.data[:-2*cut], self.data[-2*cut:-cut], self.data[-cut:]
+        
+        return self
+
     def _pack_sent_tensors(self, sents):
         lens = [min(len(s), self.longest_sent) for s in sents]
         padded = torch.LongTensor([(s + ([0]*self.longest_sent))[:self.longest_sent] for s in sents])
@@ -169,15 +189,15 @@ class JsonS2VLoader():
         return self._pack_sent_tensors(sents), orig_lens
 
     def get_total_triplets(self):
-        if not self._cached_num_total_triplets:
-            s = sum((len(s['steps'])-2 for s in self.data), 0)
-            self._cached_num_total_triplets = s
+        s = sum((len(s['steps'])-2 for s in self.data), 0)
+        return s
 
-        return self._cached_num_total_triplets
+    def get_triplets(self, batch_size=60, source=None):
+        if not source:
+            source = self.data
 
-    def get_triplets(self, batch_size=60):
         prv, cur, nxt = [], [], []
-        for s in self.data:
+        for s in source:
             for i in range(len(s['steps'])-2):
                 prv.append(s['processed'][i])
                 cur.append(s['processed'][i+1])
@@ -192,9 +212,13 @@ class JsonS2VLoader():
     def get_total_samples(self):
         return len(self.data)
 
-    def get_samples(self, batch_size, max_seq):
+    def get_samples(self, batch_size, max_seq, source=None):
         steps, titles = [], []
-        for s in self.data:
+
+        if not source:
+            source = self.data
+
+        for s in source:
             steps.append(s['processed'][:max_seq])
             titles.append(s['title_proc'])
 

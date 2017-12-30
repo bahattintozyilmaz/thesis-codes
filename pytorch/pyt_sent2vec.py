@@ -69,12 +69,10 @@ class Sent2Vec(nn.Module):
         self.encoder = nn.GRU(input_size=embed_dim, hidden_size=encode_dim, batch_first=True)
 
         self.f_decoder = nn.GRU(input_size=embed_dim, hidden_size=encode_dim, batch_first=True)
-        self.f_fc = nn.Linear(in_features=encode_dim, out_features=embed_count)
-        nn.init.uniform(self.f_fc.weight, -0.1, 0.1)
-
         self.b_decoder = nn.GRU(input_size=embed_dim, hidden_size=encode_dim, batch_first=True)
-        self.b_fc = nn.Linear(in_features=encode_dim, out_features=embed_count)
-        nn.init.uniform(self.b_fc.weight, -0.1, 0.1)
+        
+        self.fc = nn.Linear(in_features=encode_dim, out_features=embed_count)
+        nn.init.uniform(self.fc.weight, -0.1, 0.1)
 
     def forward(self, inp):
         cur, nxt, prv = inp[1], inp[2], inp[0]
@@ -112,10 +110,10 @@ class Sent2Vec(nn.Module):
         
         next_embed = self.embedding(next_sent)
         next_outs, _ = self.f_decoder(next_embed, inits)
-        next_res = self.f_fc(next_outs)
+        next_res = self.fc(next_outs)
 
         prev_embed = self.embedding(prev_sent)
         prev_outs, _ = self.b_decoder(prev_embed, inits)
-        prev_res = self.b_fc(prev_outs)
+        prev_res = self.fc(prev_outs)
 
         return prev_res, next_res
