@@ -91,7 +91,7 @@ class Sent2Vec(nn.Module):
         padded_lengths = [i*inp.size(1)+v-1 for i, v in enumerate(lengths)]
         out_ = out.contiguous().view(-1, self.encode_dim)[padded_lengths, :]
 
-        return out_, out
+        return out_.div(out_.norm(p=2, dim=2, keepdim=True)), out.div(out.norm(p=2, dim=1, keepdim=True))
 
     def decode(self, hidden, next_sent, prev_sent):
         def pad_embedding(emb):

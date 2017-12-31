@@ -25,4 +25,6 @@ class Task2Title(nn.Module):
         # then feed them to fully connected
         out_ = self.linear(out_)
 
-        return out_
+        out_ = nn.functional.tanh(out_)
+
+        return out_.div(out_.norm(p=2, dim=1, keepdim=True))

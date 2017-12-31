@@ -9,22 +9,22 @@ from data_loader import JsonS2VLoader
 from utils import C
 
 data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
-task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-take-four-filtered'
-task2title_path = '/Users/baha/Personal/thesis/new-nn-models/task2title'
-task2vec_encoder_path = task2vec_path+'.regular.pyt.cpu'
+task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-take-five'
+task2title_path = '/Users/baha/Personal/thesis/new-nn-models/task2title-take-two'
+task2vec_encoder_path = task2vec_path+'.last_epoch.pyt.cpu'
 
 embedding_size = 1000
 word_embedding_size = 500
 max_seq_len = 100
 batch_size = 60
 vocab_size = 10000
-gradient_clip = 10.0
+gradient_clip = 20.0
 enable_cuda = False
 num_epochs = 5
-task2title_hidden = 1200
+task2title_hidden = 1000
 task2title_batch_size = 10
 task2title_max_steps = 80
-filter_cats = ['Finance and Business', 'Hobbies and Crafts', 'Home and Garden', 'Cars & Other Vehicles', 'Sports and Fitness', 'Pets and Animals', 'Work World', 'Youth', 'Philosophy and Religion', 'Health', 'Relationships', 'Education and Communications', 'Arts andEntertainment', 'Personal Care and Style', 'Family Life', 'Food and Entertaining']
+filter_cats = [] #['Finance and Business', 'Hobbies and Crafts', 'Home and Garden', 'Cars & Other Vehicles', 'Sports and Fitness', 'Pets and Animals', 'Work World', 'Youth', 'Philosophy and Religion', 'Health', 'Relationships', 'Education and Communications', 'Arts andEntertainment', 'Personal Care and Style', 'Family Life', 'Food and Entertaining']
 
 log_every = 1
 save_every = 1000
@@ -53,8 +53,11 @@ def load_data():
         data_loader.filter(filter_cats)
     data_loader.load()
     data_loader.word_converter.load(task2vec_path+'.vocab.pkl')
+    data_loader._prep_filter_empty_titles()
     data_loader._prep_split_sents()
     data_loader._prep_convert_sents()
+    data_loader.filter_by_unknown_ratio(0.07)
+    data_loader.filter_by_title_unknown_ratio(0.25);
 
     return data_loader
 
@@ -76,9 +79,10 @@ def prepare_batch(encoder, batch):
     res = C(encode(encoder, res_tup))
     sents = encode(encoder, sents_tup)
     sents = sents.view(-1, task2title_max_steps, embedding_size)
-    norm = sents.norm(p=2, dim=2, keepdim=True)
+    #norm = sents.norm(p=2, dim=2, keepdim=True)
 
-    return (sents.div(norm), seq_lens), res.div(res.norm(p=2, dim=1, keepdim=True))
+    #return (sents.div(norm), seq_lens), res.div(res.norm(p=2, dim=1, keepdim=True))
+    return (sents, seq_lens), res
 
 def train(model, data, encoder):
     global task2title_path, task2title_batch_size
@@ -116,9 +120,12 @@ def train(model, data, encoder):
                 if batchid % log_every == 0:
                     log("\tBatch {}/{}, average loss: {}, current loss: {}".format(
                         batchid, num_batches, total_loss/(batchid+1), this_step_loss), log_file=logfile)
+                    log("\t\tPred norms: ", (predicted).norm(dim=1).data.tolist(), log_file=logfile)
+                    log("\t\tGT norms: ", (results).norm(dim=1).data.tolist(), log_file=logfile)
+                    log("\t\tDiff norms: ", (predicted-results).norm(dim=1).data.tolist(), log_file=logfile)
 
                 if this_step_loss < best_loss and (last_saved+save_backoff) <= batchid:
-                    log("\t\tSaving best at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
+                    log("\t\tSaving best at epoch {}, batch {}, loss {}...".format(epoch, batchid, this_step_loss), log_file=logfile)
                     torch.save(model, task2title_path+".best.pyt")
                     best_loss = this_step_loss
                     last_saved = batchid
