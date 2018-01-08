@@ -17,7 +17,7 @@ def _process_sample(sample):
     arr = []
     translations = {'``': '"', "''": '"'}
     for s in sample['steps']:
-        s = s.replace('``', '"').replace('\'\'', '"').replace('``', '"')
+        s = s.replace('``', '"').replace('\'\'', '"').replace('``', '"').replace('.', ' . ').replace('-', ' - ').replace('/', ' / ')
         arr.extend([translations.get(s_, s_) for s_ in [s.strip() for s in sent_tokenizer.tokenize(s)]])
     sample['steps'] = [s.lower() for s in arr if s]
     return sample
@@ -25,10 +25,9 @@ def _process_sample(sample):
 def _process_sents(samples):
     wc = WordConverter(num_words=-1)
     for sample in samples:
-        for s in sample['steps']:
-            wc.feed_sentence(s)
-        
-    return wc.word_counts
+        wc.feed_sample(sample['steps'])
+
+    return wc.word_counts, wc.word_sentences, wc.total_docs, wc.total_words
 
 def _process_translate(wc, sample):
     sample['processed'] = [wc.translate(s) for s in sample['steps']]
@@ -38,32 +37,68 @@ def _process_translate(wc, sample):
 class WordConverter():
     def __init__(self, num_words):
         self.num_words = num_words
+        self.total_words = 0
+        self.total_docs = 0
         self.word_counts = defaultdict(int)
+        self.word_sentences = defaultdict(int)
         self.word_dict = None
         self.word_idict = None
 
-    def feed_words(self, words):
+        self.translations = {"''": '"', "``": '"'}
+
+    def feed_words(self, words, word_set=None):
         if not isinstance(words, list):
             words = [words]
 
         for w in words:
-            self.word_counts[w.lower().strip()] += 1
+            ww = w.lower().strip()
+            ww = self.translations.get(ww, ww)
+            self.word_counts[ww] += 1
+            self.total_words += 1
+            if word_set is not None and (ww not in word_set):
+                self.word_sentences[ww] += 1
+                word_set.add(ww)
 
-    def feed_sentence(self, sent):
+    def feed_sentence(self, sent, word_set=None):
         words = word_tokenize(sent)
-        self.feed_words(words)
+        self.feed_words(words, word_set)
 
-    def feed_dict(self, dict_):
-        for k, v in dict_.items():
+    def feed_sample(self, sents):
+        word_set = set()
+        self.total_docs += 1
+        for sent in sents:
+            self.feed_sentence(sent, word_set)
+
+    def feed_other(self, other):
+        other_word_counts, other_word_sentences, other_total_docs, other_total_words = other
+
+        for k, v in other_word_counts.items():
             self.word_counts[k] += v
 
+        for k, v in other_word_sentences.items():
+            self.word_sentences[k] += v
+
+        self.total_words += other_total_words
+        self.total_docs += other_total_docs
+
     def finalize(self):
+        import math
         if not (self.word_dict and self.word_idict):
             count_word_list = [(c, w) for w, c in self.word_counts.items()]
             count_word_list.sort(reverse=True)
-            count_word_list = [(0, '<eos>'), (0, '<unk>')] +count_word_list[:(self.num_words-2)]
+            count_word_list = count_word_list[:(self.num_words-2)]
+            mean_count = sum([c for (c,w) in count_word_list])/len(count_word_list)
+            tf_idfs = [(c/mean_count)*math.log((1+self.total_docs)/(1+self.word_sentences[w])) 
+                       for (c, w) in count_word_list]
+
+            count_word_list = [(0, '<eos>'), (0, '<unk>')] + count_word_list[:(self.num_words-2)]
             self.word_dict = dict((e[1], i) for i, e in enumerate(count_word_list))
             self.word_idict = dict((i, e[1]) for i, e in enumerate(count_word_list))
+            self.ordered_words = [c[1] for c in count_word_list]
+
+            mean_tf_idfs = sum(tf_idfs)/len(tf_idfs)
+
+            self.tfidfs = [1, mean_tf_idfs] + tf_idfs
 
         return self.word_dict, self.word_idict
 
@@ -78,11 +113,17 @@ class WordConverter():
     def dump(self, filename):
         with open(filename, 'wb') as f:
             pickle.dump(self.word_dict, f)
+            pickle.dump(self.tfidfs, f)
 
     def load(self, filename):
         with open(filename, 'rb') as f:
             self.word_dict = pickle.load(f)
+            try:
+                self.tfidfs = pickle.load(f)
+            except:
+                pass
         self.word_idict = dict((v,k) for k,v in self.word_dict.items())
+        self.ordered_words = [c[1] for c in sorted(list(self.word_idict.items()))]
 
 class JsonS2VLoader():
     def __init__(self, filename, num_words=10000, longest_sent=100, as_cuda=False):
@@ -111,6 +152,8 @@ class JsonS2VLoader():
         if self.filter_func:
             self.data = [s for s in self.data if self.filter_func(s)]
 
+        del self.filter_func
+
         return self
 
     def _prep_split_sents(self):
@@ -124,8 +167,8 @@ class JsonS2VLoader():
         pool = multiprocessing.Pool(processes=self.num_cpus)
         all_counts = pool.map(_process_sents, (self.data[i::self.num_cpus] for i in range(self.num_cpus)))
         pool.terminate()
-        for count in all_counts:
-            self.word_converter.feed_dict(count)
+        for other in all_counts:
+            self.word_converter.feed_other(other)
 
         print('Done feeding word counter')
         self.word_converter.finalize()

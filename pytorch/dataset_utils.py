@@ -30,7 +30,7 @@ def _split_sentences_func(sample):
     arr = []
     translations = {'``': '"', "''": '"'}
     for s in sample['steps']:
-        s = s.replace('``', '"').replace('\'\'', '"').replace('``', '"')
+        s = s.replace('``', '"').replace('\'\'', '"').replace('``', '"').replace('.', ' . ').replace('-', ' - ').replace('/', ' / ')
         arr.extend([translations.get(s_, s_) for s_ in [s.strip() for s in sent_tokenizer.tokenize(s)]])
     sample['steps'] = [s.lower() for s in arr if s]
     return sample
@@ -92,3 +92,45 @@ def convert_dataset_to_vec(model, wc, filename, outname=None):
         pickle.dump(new_data, f)
 
     return data
+
+def _tok(text,ts=False):
+    
+    '''
+    Usage: tokenized_text = tok(text,token_list)
+    If token list is not provided default one will be used instead.
+    '''
+
+    if not ts:
+        ts = [',','.',';','(',')','?','!','&','%',':','*','"',"'ve", "'d", "'m", "n't"]
+
+    for t in ts:
+        text = text.replace(t,' ' + t + ' ')
+    return text
+
+def prep_word2vec_input(filename, outname):
+    data = load_dataset(filename)
+
+    with open(outname, 'w') as f:
+        for sample in data:
+            for sent in sample['steps']:
+                f.write(_tok(sent)+'\n')
+
+def load_word2vec(path):
+    with open(path) as f:
+        # data = ['word v1 v2 v3 ...', ...]
+        data = f.read().split('\n')[1:]
+
+    # data = [['word', 'v1', 'v2', ...], ...]
+    data = [s.rstrip().split(' ') for s in data]
+    # data = {'word', [v1, v2, ...], ...}
+    data = {s[0]: [float(n) for n in s[1:]] for s in data}
+
+    return data
+
+def save_generic(data, path):
+    with open(path, 'wb') as f:
+        pickle.dump(data, f)
+
+def load_generic(path):
+    with open(path, 'rb') as f:
+        return pickle.load(f)

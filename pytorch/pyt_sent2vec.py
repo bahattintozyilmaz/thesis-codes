@@ -24,11 +24,12 @@ def sequence_mask(sequence_length, max_len=None):
                          .expand_as(seq_range_expand))
     return seq_range_expand < seq_length_expand
 
-def masked_cross_entropy_loss(logits, target, lengths):
+def masked_cross_entropy_loss(logits, target, lengths, weight):
     length = Variable(torch.LongTensor(lengths))
 
     if logits.is_cuda:
         length = length.cuda()
+        weight = weight.cuda()
 
     # logits_flat: (batch * max_len, num_classes)
     logits_flat = logits.view(-1, logits.size(-1))
@@ -38,12 +39,17 @@ def masked_cross_entropy_loss(logits, target, lengths):
     target_flat = target.view(-1, 1)
     # losses_flat: (batch * max_len, 1)
     losses_flat = -torch.gather(log_probs_flat, dim=1, index=target_flat)
+    #print(target_flat)
+    weight_flat = torch.index_select(weight, dim=0, index=target_flat.squeeze())
     # losses: (batch, max_len)
+    #print('lf', losses_flat)
+    #print('wf', weight_flat)
+    losses_flat = losses_flat.mul(weight_flat.unsqueeze(1))
     losses = losses_flat.view(*target.size())
     # mask: (batch, max_len)
     mask = sequence_mask(sequence_length=length, max_len=target.size(1))
     losses = losses * mask.float()
-    loss = losses.sum() / length.float().sum()
+    loss = losses.sum(dim=1).div(length.float())
     return loss
 
 def one_hot_encode(labels, max_val):
@@ -65,14 +71,32 @@ class Sent2Vec(nn.Module):
         self.encode_dim = encode_dim
 
         self.embedding = nn.Embedding(num_embeddings=embed_count, embedding_dim=embed_dim)
-        nn.init.uniform(self.embedding.weight, -0.1, 0.1)
         self.encoder = nn.GRU(input_size=embed_dim, hidden_size=encode_dim, batch_first=True)
 
         self.f_decoder = nn.GRU(input_size=embed_dim, hidden_size=encode_dim, batch_first=True)
         self.b_decoder = nn.GRU(input_size=embed_dim, hidden_size=encode_dim, batch_first=True)
-        
+
         self.fc = nn.Linear(in_features=encode_dim, out_features=embed_count)
+
+        self.init_weights()
+
+    def init_weights(self):
+        nn.init.uniform(self.embedding.weight, -0.1, 0.1)
         nn.init.uniform(self.fc.weight, -0.1, 0.1)
+
+    def apply_word2vec_weights(self, word2vec, embedding_keys):
+        n = 0
+        not_found = []
+        translation = {'<eos>': '</s>'}
+        for i, word in enumerate(embedding_keys):
+            word = translation.get(word, word)
+            if word in word2vec:
+                self.embedding.weight.data[i,:] = torch.FloatTensor(word2vec[word])
+                n+=1
+            else:
+                not_found.append(word)
+        print('applied ', n, ' word2vecs')
+        print(not_found)
 
     def forward(self, inp):
         cur, nxt, prv = inp[1], inp[2], inp[0]
@@ -91,7 +115,7 @@ class Sent2Vec(nn.Module):
         padded_lengths = [i*inp.size(1)+v-1 for i, v in enumerate(lengths)]
         out_ = out.contiguous().view(-1, self.encode_dim)[padded_lengths, :]
 
-        return out_.div(out_.norm(p=2, dim=2, keepdim=True)), out.div(out.norm(p=2, dim=1, keepdim=True))
+        return out_.div(out_.norm(p=2, dim=1, keepdim=True)), out.div(out.norm(p=2, dim=2, keepdim=True))
 
     def decode(self, hidden, next_sent, prev_sent):
         def pad_embedding(emb):
