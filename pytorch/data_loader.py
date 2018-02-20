@@ -149,6 +149,8 @@ class JsonS2VLoader():
         with open(self.filename, 'r') as f:
             self.data = json.load(f)
 
+        self.data = [s for s in self.data if s.get('status') != 'rejected']
+
         if self.filter_func:
             self.data = [s for s in self.data if self.filter_func(s)]
 

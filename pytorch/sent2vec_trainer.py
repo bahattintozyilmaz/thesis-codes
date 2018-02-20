@@ -6,9 +6,9 @@ from pyt_sent2vec import Sent2Vec, masked_cross_entropy_loss
 from data_loader import JsonS2VLoader
 from dataset_utils import load_word2vec
 
-data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
+data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.sent_processed.id_assigned.json'
 word2vec_path = '/Users/baha/Personal/thesis/vocab.txt'
-task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-last-try'
+task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-2018-01-31'
 
 embedding_size = 1000
 word_embedding_size = 300
@@ -23,6 +23,7 @@ filter_cats = []
 log_every = 10
 save_every = 10000
 save_backoff = 100
+sample_every = 29
 
 try:
     from overrides import *
@@ -104,9 +105,10 @@ def train(model, data_loader, task2vec_path=task2vec_path):
                 this_step_loss = loss.mean().data[0]
                 total_loss += this_step_loss
 
-                log('\tBatch', batchid, prv_loss.mean().data[0], nxt_loss.mean().data[0], log_file=logfile)
-                sample(data_loader, prv_pred.data, prv, prv_len, 0, '\t\tbw', logfile)
-                sample(data_loader, nxt_pred.data, nxt, nxt_len, 0, '\t\tfw', logfile)
+                if batchid % sample_every == 0:
+                    log('\tBatch', batchid, prv_loss.mean().data[0], nxt_loss.mean().data[0], log_file=logfile)
+                    sample(data_loader, prv_pred.data, prv, prv_len, 0, '\t\tbw', logfile)
+                    sample(data_loader, nxt_pred.data, nxt, nxt_len, 0, '\t\tfw', logfile)
 
                 if batchid % log_every == 0:
                     log("\tBatch {}/{}, average loss: {}, current loss: {}".format(

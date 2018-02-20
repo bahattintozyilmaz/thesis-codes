@@ -8,20 +8,20 @@ from task2title import Task2Title
 from data_loader import JsonS2VLoader
 from utils import C
 
-data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.json'
-task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-take-five'
-task2title_path = '/Users/baha/Personal/thesis/new-nn-models/task2title-take-two'
-task2vec_encoder_path = task2vec_path+'.last_epoch.pyt.cpu'
+data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.sent_processed.id_assigned.json'
+task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-2018-01-31'
+task2title_path = '/Users/baha/Personal/thesis/new-nn-models/task2title-2018-02-01-700'
+task2vec_encoder_path = task2vec_path+'.last_epoch.pyt'
 
 embedding_size = 1000
-word_embedding_size = 500
+word_embedding_size = 300
 max_seq_len = 100
-batch_size = 60
+batch_size = 128
 vocab_size = 10000
 gradient_clip = 20.0
 enable_cuda = False
-num_epochs = 5
-task2title_hidden = 1000
+num_epochs = 10
+task2title_hidden = 700
 task2title_batch_size = 10
 task2title_max_steps = 80
 filter_cats = [] #['Finance and Business', 'Hobbies and Crafts', 'Home and Garden', 'Cars & Other Vehicles', 'Sports and Fitness', 'Pets and Animals', 'Work World', 'Youth', 'Philosophy and Religion', 'Health', 'Relationships', 'Education and Communications', 'Arts andEntertainment', 'Personal Care and Style', 'Family Life', 'Food and Entertaining']
@@ -29,6 +29,7 @@ filter_cats = [] #['Finance and Business', 'Hobbies and Crafts', 'Home and Garde
 log_every = 1
 save_every = 1000
 save_backoff = 100
+use_cosine = True
 
 try:
     from overrides import *
@@ -96,7 +97,7 @@ def train(model, data, encoder):
 
     best_loss = 1e8
 
-    with open(task2title_path+'.run.log', 'a') as logfile:
+    with open(task2title_path+'.run.log', 'a') as logfile, open(task2title_path+'.vectors.log', 'a') as vector_file:
         for epoch in range(num_epochs):
             log('starting epoch ', epoch+1, log_file=logfile)
             total_loss = 0
@@ -107,7 +108,11 @@ def train(model, data, encoder):
                 predicted = model(steps)
                 optimizer.zero_grad()
 
-                loss = nn.functional.mse_loss(predicted, results)
+                length = len(batch[1][1])
+                y = torch.FloatTensor(length).fill_(1)
+                y = y.cuda() if enable_cuda else y
+
+                loss = nn.functional.cosine_embedding_loss(predicted, results, C(y))
 
                 loss.backward()
 
@@ -120,8 +125,8 @@ def train(model, data, encoder):
                 if batchid % log_every == 0:
                     log("\tBatch {}/{}, average loss: {}, current loss: {}".format(
                         batchid, num_batches, total_loss/(batchid+1), this_step_loss), log_file=logfile)
-                    log("\t\tPred norms: ", (predicted).norm(dim=1).data.tolist(), log_file=logfile)
-                    log("\t\tGT norms: ", (results).norm(dim=1).data.tolist(), log_file=logfile)
+                    #log("\t\tPred norms: ", (predicted).norm(dim=1).data.tolist(), log_file=logfile)
+                    #log("\t\tGT norms: ", (results).norm(dim=1).data.tolist(), log_file=logfile)
                     log("\t\tDiff norms: ", (predicted-results).norm(dim=1).data.tolist(), log_file=logfile)
 
                 if this_step_loss < best_loss and (last_saved+save_backoff) <= batchid:
@@ -133,6 +138,11 @@ def train(model, data, encoder):
                 if batchid % save_every == 0:
                     log("\t\tSaving regularly at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
                     torch.save(model, task2title_path+".regular.pyt")
+
+                if epoch == num_epochs-1:
+                    for v_id in range(length):
+                        print('gt ', results.data[v_id,:].tolist(), file=vector_file)
+                        print('pr ', predicted.data[v_id,:].tolist(), file=vector_file)
 
             torch.save(model, task2title_path+".epoch-{}.pyt".format(epoch))
 

@@ -8,8 +8,9 @@ class Task2Title(nn.Module):
         self.inner_size = inner_size
         self.gru = nn.GRU(input_size=input_size, hidden_size=self.inner_size, num_layers=2,
                           batch_first=True)
-        nn.init.uniform(self.gru.weight_hh_l0, -0.1, 0.1)
-        nn.init.uniform(self.gru.weight_ih_l0, -0.1, 0.1)
+        nn.init.uniform(self.gru.gru.weight_hh_l0, -0.1, 0.1)
+        nn.init.uniform(self.gru.gru.weight_ih_l0, -0.1, 0.1)
+
         self.linear = nn.Linear(in_features=self.inner_size, out_features=input_size)
         nn.init.uniform(self.linear.weight, -0.1, 0.1)
 
