@@ -30,7 +30,7 @@ class Attn(nn.Module):
                 attn_energies[b, i] = self.score(hidden[b, :], encoder_outputs[b, i].unsqueeze(0))
 
         # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
-        return F.softmax(attn_energies).unsqueeze(1)
+        return nn.functional.softmax(attn_energies).unsqueeze(1)
     
     def score(self, hidden, encoder_output):
         if self.method == 'dot':

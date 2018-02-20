@@ -255,8 +255,10 @@ class JsonS2VLoader():
         if cur:
             yield (self._pack_sent_tensors(prv), self._pack_sent_tensors(cur), self._pack_sent_tensors(nxt))
 
-    def get_total_samples(self):
-        return len(self.data)
+    def get_total_samples(self, source=None):
+        if not source:
+            source = self.data
+        return len(source)
 
     def get_samples(self, batch_size, max_seq, source=None):
         steps, titles = [], []

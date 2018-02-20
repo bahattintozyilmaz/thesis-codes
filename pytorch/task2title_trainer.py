@@ -10,8 +10,8 @@ from utils import C
 
 data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.sent_processed.id_assigned.json'
 task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-2018-01-31'
-task2title_path = '/Users/baha/Personal/thesis/new-nn-models/task2title-2018-02-01-700'
-task2vec_encoder_path = task2vec_path+'.last_epoch.pyt'
+task2title_path = '/Users/baha/Personal/thesis/new-nn-models/task2title-2018-02-20'
+task2vec_encoder_path = task2vec_path+'.cpu.pyt'
 
 embedding_size = 1000
 word_embedding_size = 300
@@ -85,9 +85,9 @@ def prepare_batch(encoder, batch):
     #return (sents.div(norm), seq_lens), res.div(res.norm(p=2, dim=1, keepdim=True))
     return (sents, seq_lens), res
 
-def train(model, data, encoder):
+def train(model, data_loader, encoder, training=None, testing=None):
     global task2title_path, task2title_batch_size
-    num_batches = (data.get_total_samples() + task2title_batch_size - 1) // task2title_batch_size
+    num_batches = (data_loader.get_total_samples(source=training) + task2title_batch_size - 1) // task2title_batch_size
 
     if enable_cuda:
         model = model.cuda()
@@ -102,7 +102,7 @@ def train(model, data, encoder):
             log('starting epoch ', epoch+1, log_file=logfile)
             total_loss = 0
             last_saved = -save_backoff
-            for batchid, batch in enumerate(data.get_samples(batch_size=task2title_batch_size, max_seq=task2title_max_steps)):
+            for batchid, batch in enumerate(data_loader.get_samples(batch_size=task2title_batch_size, max_seq=task2title_max_steps, source=training)):
                 steps, results = prepare_batch(encoder, batch)
 
                 predicted = model(steps)
@@ -144,7 +144,28 @@ def train(model, data, encoder):
                         print('gt ', results.data[v_id,:].tolist(), file=vector_file)
                         print('pr ', predicted.data[v_id,:].tolist(), file=vector_file)
 
-            torch.save(model, task2title_path+".epoch-{}.pyt".format(epoch))
+            # torch.save(model, task2title_path+".epoch-{}.pyt".format(epoch))
 
+        if testing:
+            model.eval()
+            for batchid, batch in enumerate(data_loader.get_samples(batch_size=task2title_batch_size, max_seq=task2title_max_steps, source=testing)):
+                steps, results = prepare_batch(encoder, batch)
+                predicted = model(steps)
+
+                length = len(batch[1][1])
+                for v_id in range(length):
+                        print('gt ', results.data[v_id,:].tolist(), file=vector_file)
+                        print('pr ', predicted.data[v_id,:].tolist(), file=vector_file)
+
+            model.train()
     return model
+
+def cross_validate(data_loader, encoder):
+    folds = 10
+    for n in range(folds):
+        # prepare training and testing 
+        training = [d for (i,d) in enumerate(data_loader.data) if i%folds!=n]
+        testing = [d for (i,d) in enumerate(data_loader.data) if i%folds==n]
+        model = create_model()
+        train(model, data_loader, encoder, training=training, testing=testing)
 
