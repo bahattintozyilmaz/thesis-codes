@@ -3,6 +3,8 @@ import multiprocessing
 import os
 import torch
 import pickle
+import numpy as np
+from tqdm import tqdm
 from data_loader import WordConverter, sent_tokenizer
 from pyt_sent2vec import Sent2Vec
 
@@ -134,3 +136,26 @@ def save_generic(data, path):
 def load_generic(path):
     with open(path, 'rb') as f:
         return pickle.load(f)
+
+def load_vectors(filename):
+    with open(filename) as f:
+        lines = f.readlines()
+    
+    pr = [eval(l[3:]) for l in lines if l.startswith('pr ')]
+    gt = [eval(l[3:]) for l in lines if l.startswith('gt ')]
+
+    return np.array(pr), np.array(gt)
+
+def nearest_ind(vec, neighbors):
+    dists = neighbors - vec
+    dists = (dists*dists).sum(axis=1)
+    return dists.argmin()
+
+def evaluate(pr, gt):
+    correct = 0
+    for i in tqdm(range(pr.shape[0])):
+        nearest = nearest_ind(pr[i,:], gt)
+        if i==nearest:
+            correct += 1
+
+    return correct, pr.shape[0]
