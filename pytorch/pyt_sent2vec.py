@@ -111,7 +111,7 @@ class Sent2Vec(nn.Module):
         curr_embed = self.embedding(inp)
 
         out, imm = self.encoder(curr_embed)
-        out_ = imm.squeeze()
+        out_ = imm.squeeze(0)
 
         return nn.functional.normalize(out_, p=2, dim=1), out.div(out.norm(p=2, dim=2, keepdim=True))
 
