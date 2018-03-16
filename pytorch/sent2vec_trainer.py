@@ -8,9 +8,9 @@ from dataset_utils import load_word2vec
 
 data_path = '/Users/baha/Personal/thesis/wikihowdumpall.clean.sent_processed.id_assigned.json'
 word2vec_path = '/Users/baha/Personal/thesis/vocab.txt'
-task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-2018-01-31'
+task2vec_path = '/Users/baha/Personal/thesis/new-nn-models/task2vec-2018-03-16'
 
-embedding_size = 1000
+embedding_size = 500
 word_embedding_size = 300
 max_seq_len = 100
 batch_size = 60
@@ -75,7 +75,7 @@ def train(model, data_loader, task2vec_path=task2vec_path):
         {'params': model.encoder.parameters()},
         {'params': model.f_decoder.parameters()},
         {'params': model.b_decoder.parameters()},
-        {'params': model.fc.parameters(), 'lr': 0.00025},
+        {'params': model.fc.parameters(), 'lr': 0.0005},
         {'params': model.embedding.parameters(), 'lr': 0.0001}
     ], lr=0.001)
 
@@ -86,7 +86,7 @@ def train(model, data_loader, task2vec_path=task2vec_path):
             log('starting epoch ', epoch+1, log_file=logfile)
             total_loss = 0
             last_saved = -save_backoff
-            for batchid, batch in enumerate(data_loader.get_triplets(batch_size=batch_size)):
+            for batchid, batch in enumerate(data_loader.get_ordered_triplets(batch_size=batch_size)):
                 prv, cur, nxt = batch
                 prv, prv_len = prv
                 nxt, nxt_len = nxt
@@ -106,7 +106,7 @@ def train(model, data_loader, task2vec_path=task2vec_path):
                 total_loss += this_step_loss
 
                 if batchid % sample_every == 0:
-                    log('\tBatch', batchid, prv_loss.mean().data[0], nxt_loss.mean().data[0], log_file=logfile)
+                    log('\tBatch', batchid, 'at length', cur[1][0], prv_loss.mean().data[0], nxt_loss.mean().data[0], log_file=logfile)
                     sample(data_loader, prv_pred.data, prv, prv_len, 0, '\t\tbw', logfile)
                     sample(data_loader, nxt_pred.data, nxt, nxt_len, 0, '\t\tfw', logfile)
 

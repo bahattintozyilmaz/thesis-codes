@@ -146,16 +146,18 @@ def load_vectors(filename):
 
     return np.array(pr), np.array(gt)
 
-def nearest_ind(vec, neighbors):
+def nearest_ind(vec, neighbors, k=1):
     dists = neighbors - vec
     dists = (dists*dists).sum(axis=1)
-    return dists.argmin()
+    return dists.argpartition(k)[:k]
 
-def evaluate(pr, gt):
+def evaluate(pr, gt, k=1):
     correct = 0
+    maps = {}
     for i in tqdm(range(pr.shape[0])):
-        nearest = nearest_ind(pr[i,:], gt)
-        if i==nearest:
+        nearest = nearest_ind(pr[i,:], gt, k)
+        maps[i] = nearest
+        if i in nearest:
             correct += 1
 
-    return correct, pr.shape[0]
+    return correct, pr.shape[0], maps

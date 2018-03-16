@@ -217,9 +217,11 @@ class JsonS2VLoader():
         
         return self
 
-    def _pack_sent_tensors(self, sents):
-        lens = [min(len(s), self.longest_sent) for s in sents]
-        padded = torch.LongTensor([(s + ([0]*self.longest_sent))[:self.longest_sent] for s in sents])
+    def _pack_sent_tensors(self, sents, len_override=None):
+        if not len_override:
+            len_override = self.longest_sent
+        lens = [min(len(s), len_override) for s in sents]
+        padded = torch.LongTensor([(s + ([0]*len_override))[:len_override] for s in sents])
         if self.as_cuda:
             padded = padded.cuda()
         return padded, lens
@@ -255,6 +257,33 @@ class JsonS2VLoader():
         if cur:
             yield (self._pack_sent_tensors(prv), self._pack_sent_tensors(cur), self._pack_sent_tensors(nxt))
 
+    def get_ordered_triplets(self, batch_size=60, source=None):
+        if not source:
+            source = self.data
+
+        grouped = []
+        criteria = lambda e: len(e[1])
+
+        for s in source:
+            for i in range(len(s['steps'])-2):
+                grouped.append((s['processed'][i]+[0], s['processed'][i+1]+[0], s['processed'][i+2]+[0]))
+        grouped.sort(key=criteria)
+
+        def prepare_sample(sample):
+            prv, cur, nxt = zip(*sample)
+            return (self._pack_sent_tensors(prv), self._pack_sent_tensors(cur, len_override=len(cur[0])), self._pack_sent_tensors(nxt))
+
+        start, stop = 0, 1
+        while start<len(grouped):
+            if ((stop-start >= batch_size) or
+                (stop == len(grouped)) or
+                (criteria(grouped[start]) != criteria(grouped[stop]))
+            ):
+                yield prepare_sample(grouped[start:stop])
+                start, stop = stop, stop+1
+            else:
+                stop += 1
+        
     def get_total_samples(self, source=None):
         if not source:
             source = self.data

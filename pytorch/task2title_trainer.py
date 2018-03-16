@@ -139,11 +139,6 @@ def train(model, data_loader, encoder, training=None, testing=None):
                     log("\t\tSaving regularly at epoch {}, batch {}...".format(epoch, batchid), log_file=logfile)
                     torch.save(model, task2title_path+".regular.pyt")
 
-                if epoch == num_epochs-1:
-                    for v_id in range(length):
-                        print('gt ', results.data[v_id,:].tolist(), file=vector_file)
-                        print('pr ', predicted.data[v_id,:].tolist(), file=vector_file)
-
             # torch.save(model, task2title_path+".epoch-{}.pyt".format(epoch))
 
         if testing:
