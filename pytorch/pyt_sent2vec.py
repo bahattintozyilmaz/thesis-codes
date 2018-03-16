@@ -29,7 +29,6 @@ def masked_cross_entropy_loss(logits, target, lengths, weight):
 
     if logits.is_cuda:
         length = length.cuda()
-        weight = weight.cuda()
 
     # logits_flat: (batch * max_len, num_classes)
     logits_flat = logits.view(-1, logits.size(-1))
@@ -39,17 +38,12 @@ def masked_cross_entropy_loss(logits, target, lengths, weight):
     target_flat = target.view(-1, 1)
     # losses_flat: (batch * max_len, 1)
     losses_flat = -torch.gather(log_probs_flat, dim=1, index=target_flat)
-    #print(target_flat)
-    weight_flat = torch.index_select(weight, dim=0, index=target_flat.squeeze())
     # losses: (batch, max_len)
-    #print('lf', losses_flat)
-    #print('wf', weight_flat)
-    losses_flat = losses_flat.mul(weight_flat.unsqueeze(1))
     losses = losses_flat.view(*target.size())
     # mask: (batch, max_len)
     mask = sequence_mask(sequence_length=length, max_len=target.size(1))
     losses = losses * mask.float()
-    loss = losses.sum(dim=1).div(length.float())
+    loss = losses.sum() / length.float().sum()
     return loss
 
 def one_hot_encode(labels, max_val):
