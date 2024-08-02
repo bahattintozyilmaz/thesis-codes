@@ -1,5 +1,5 @@
 beautifulsoup4
-keras==2.0.4
+keras==2.13.1
 numpy
 matplotlib
 tensorflow
